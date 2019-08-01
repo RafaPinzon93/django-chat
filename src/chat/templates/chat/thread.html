@@ -11,6 +11,7 @@
 </ul>
 
 <form id='form' method='POST'> {% csrf_token %}
+<input type="hidden" id="my_username" value="{{ user.username }}">
 {{form.as_p }}
 <input type='submit' class='btn btn-primary'/>
 </form>
@@ -18,10 +19,14 @@
 {% endblock %}
 
 {% block script %}
-
+<script src="https://cdnjs.cloudflare.com/ajax/libs/reconnecting-websocket/1.0.0/reconnecting-websocket.min.js"></script>
 <script>
 // websocket scripts
 const loc = window.location
+const formData = $("#form")
+const msgInput = $("#id_message");
+const chatHolder = $("#chat-items")
+const my_username = $("#my_username").val()
 
 var wsStart = "ws://"
 if (loc.protocol === "https:"){
@@ -29,13 +34,30 @@ if (loc.protocol === "https:"){
 }
 var endpoint = `${wsStart}${loc.host}${loc.pathname}`
 
-var socket = new WebSocket(endpoint)
+var socket = new ReconnectingWebSocket(endpoint)
 
 socket.onmessage = function(e) {
     console.log("message", e)
+    const {message, username} = JSON.parse(e.data);
+    chatHolder.append(`<li>${message} via ${username}</li>`)
 }
 socket.onopen = function(e) {
     console.log("open", e)
+    formData.submit(event => {
+        event.preventDefault();
+        // const formDataSerialized = formData.serialize();
+        const msgText = msgInput.val()
+
+        var finalData = {
+            'message': msgText,
+            'username': my_username,
+        }
+
+        console.log(finalData)
+
+        socket.send(JSON.stringify(finalData))
+        formData[0].reset();
+    })
 }
 socket.onerror = function(e) {
     console.log("error", e)
