@@ -12,8 +12,8 @@ class ChatConsumer(AsyncConsumer):
 
         other_user = self.scope['url_route']['kwargs']['username']
         me = self.scope['user']
-        thread_obj = await self.get_thread(me, other_user)
-        self.chat_room = f'thread_{thread_obj.id}'
+        self.thread_obj = await self.get_thread(me, other_user)
+        self.chat_room = f'thread_{self.thread_obj.id}'
         await self.channel_layer.group_add(
             self.chat_room,
             self.channel_name
@@ -36,10 +36,9 @@ class ChatConsumer(AsyncConsumer):
                 'message': msg,
                 'username': username,
             }
-            new_event = {
-                "type": "websocket.send",
-                "text": json.dumps(response)
-            }
+
+            await self.create_chat_message(msg)
+
             await self.channel_layer.group_send(
                 self.chat_room,
                 {
@@ -60,3 +59,9 @@ class ChatConsumer(AsyncConsumer):
     @database_sync_to_async
     def get_thread(self, user, other_username):
         return Thread.objects.get_or_new(user, other_username)[0]
+
+    @database_sync_to_async
+    def create_chat_message(self, message):
+        thread_obj = self.thread_obj
+        me = self.scope['user']
+        return ChatMessage.objects.create(thread=thread_obj, user=me, message=message)
